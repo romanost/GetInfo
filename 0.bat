@@ -1,0 +1,1 @@
+c:\python27\python compile.py py2exe

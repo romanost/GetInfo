@@ -1,0 +1,273 @@
+'''
+Created on Mar 23, 2016
+
+@author: user
+'''
+
+
+#import PyQt4
+import sys
+import threading
+#import datetime
+#import os
+from PyQt4 import QtCore, QtGui
+#from PyQt4 import *
+from mainform import Ui_MainWindow
+from prefs import Ui_Dialog
+import subprocess
+from PyQt4.Qt import QTime
+
+from PyQt4.QtGui import *
+import config
+from whois import NICClient
+
+class StartQT4(QtGui.QMainWindow):
+    # Pings
+    runs=False
+    pr=subprocess
+    
+    #Whois
+    whoisruns=False
+    whoisoutput=""
+    
+    #dns
+    dnspr=subprocess
+    dnsruns=False
+    
+    #mx
+    mxpr=subprocess
+    mxruns=False
+    
+    #ptr
+    ptrpr=subprocess
+    ptrruns=False
+    
+    #all
+    allruns=False
+    
+#     alarm=False    
+#     destTime=0
+#     clr=False
+#     oldp=QtGui.QPalette()
+#     oldf=QtCore.Qt.WindowFlags()
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
+        self.ui = Ui_MainWindow()
+        self.ui.setupUi(self)
+         
+        #self.ui.actionNew.triggered.connect(self.createNew)
+        self.ui.pingButton.clicked.connect(self.doping)
+        self.ui.pingIn.returnPressed.connect(self.doping)
+        self.ui.whoisButton.clicked.connect(self.dowhois)
+        self.ui.whoisIn.returnPressed.connect(self.dowhois)
+        self.ui.dnsButton.clicked.connect(self.dodns)
+        self.ui.dnsIn.returnPressed.connect(self.dodns)
+        self.ui.mxButton.clicked.connect(self.domx)
+        self.ui.mxIn.returnPressed.connect(self.domx)
+        self.ui.ptrButton.clicked.connect(self.doptr)
+        self.ui.ptrIn.returnPressed.connect(self.doptr)
+        self.ui.allButton.clicked.connect(self.doall)
+        self.ui.allIn.returnPressed.connect(self.doall)
+        
+        
+        self.ui.action_Prefrences.triggered.connect(self.openPrefs)
+        self.ui.action_Exit.triggered.connect(self.openExit)
+        #self.ui.timeEdit.timeChanged.connect(self.timerUpdated)
+        #self.ui.alarmEdit.timeChanged.connect(self.alarmUpdated)
+        
+        #self.oldp=self.palette()
+        #self.oldf=self.windowFlags()
+        
+        t = threading.Thread(target=self.showout) 
+        t.daemon = True  # YOU MAY NOT WANT THIS: Only use this line if you want the program to exit without waiting for the thread to finish 
+        t.start()        # Starts the thread 
+        t.setName('backproc') # Makes it easier to interact with the thread later 
+ 
+        
+#         timer=QtCore.QTimer(self)
+#         timer.timeout.connect(self.showout)
+#         timer.start(500)
+
+    def openPrefs(self):
+        dialog=QDialog()
+        dialog.ui=Ui_Dialog()
+        dialog.ui.setupUi(dialog)
+        res=dialog.exec_()
+        self.ui.allOut.append(str(res))
+        z=str(dialog.ui.lineEdit.text())
+        self.ui.allOut.append(z)
+        
+        return
+    
+    def openExit(self):
+        #print "open"
+        exit()
+        
+    def showout(self):
+        while True:
+            if (self.runs):
+                #s=str(self.pr.stdout)
+                inchar = self.pr.stdout.readline()
+                if inchar: #neither empty string nor None
+                    #print(str(inchar), end='') #or end=None to flush immediately
+                    s=inchar.decode('utf-8')
+                    self.ui.pingOut.append(str(s))
+                    #self.ui.whoisOut.append(str(s))
+                    if (config.autoscroll):
+                        self.ui.pingOut.moveCursor(QtGui.QTextCursor.End)
+            if (self.whoisoutput):
+                #self.ui.whoisOut.setPlainText(self.whoisoutput)
+                #self.ui.whoisOut.append(self.whoisoutput)
+#                 if (self.allruns):
+#                     self.ui.allOut.append(self.whoisoutput)
+                self.ui.whoisOut.append("Done.")
+                self.whoisoutput=""
+                #self.whoisruns=False
+            if (self.dnsruns):
+                if self.dnspr.poll() is not None:
+                    inlines=self.dnspr.stdout.readlines()
+                    if inlines:
+                        s=""
+                        for inchar in inlines:
+                            s+=inchar.decode('utf-8')
+                            #s=str(inchar)
+                        self.ui.dnsOut.append(str(s))
+#                         if (self.allruns):
+#                             self.ui.allOut.append(str(s))
+                    self.dnsruns=False
+            if (self.mxruns):
+                if self.mxpr.poll() is not None:
+                    inlines=self.mxpr.stdout.readlines()
+                    if inlines:
+                        s=""
+                        for inchar in inlines:
+                            s+=inchar.decode('utf-8')
+                            #s=str(inchar)
+                        self.ui.mxOut.append(str(s))
+#                         if (self.allruns):
+#                             self.ui.allOut.append(str(s))
+                    self.mxruns=False
+            if (self.ptrruns):
+                if self.ptrpr.poll() is not None:
+                    inlines=self.ptrpr.stdout.readlines()
+                    if inlines:
+                        s=""
+                        for inchar in inlines:
+                            s+=inchar.decode('utf-8')
+                            #s=str(inchar)
+                        self.ui.ptrOut.append(str(s))
+#                         if (self.allruns):
+#                             self.ui.allOut.append(str(s))
+                    self.ptrruns=False
+            if (self.allruns) and (self.runs) and (not self.whoisruns) and (not self.dnsruns) and (not self.mxruns) and (not self.ptrruns):
+                self.doping()
+                self.ui.allOut.append(self.ui.whoisOut.toPlainText())
+                self.ui.allOut.append(self.ui.dnsOut.toPlainText())
+                self.ui.allOut.append(self.ui.mxOut.toPlainText())
+                self.ui.allOut.append(self.ui.ptrOut.toPlainText())
+                self.ui.allOut.append(self.ui.pingOut.toPlainText())
+                self.allruns=False
+        
+    def doping(self):
+        if (self.runs):
+            self.runs=False
+            self.ui.pingButton.setText("Ping")
+            self.pr.kill()
+        else:
+            self.ui.pingButton.setText("Stop")
+            addr=str(self.ui.pingIn.text())
+            self.ui.pingOut.setPlainText("Pinging: "+addr)
+            self.pr = subprocess.Popen(['ping', '-t',addr], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+            self.runs=True
+        #out=self.pr.communicate()
+        #s=out.decode('utf-8')
+        #print (s)
+        #self.ui.pingOut.setPlainText(str(out))
+        #self.ui.pingOut.setPlainText("test")
+        return
+    
+    def whoisthread(self):
+        nic_client = NICClient()
+        url=str(self.ui.whoisIn.text())
+        output=nic_client.whois_lookup(None,url, 0)
+        #self.ui.whoisOut.setPlainText(output)
+        #print (output)
+        self.whoisoutput=output
+        #self.ui.whoisOut.append("Done.")
+        self.whoisruns=False
+        
+    def dowhois(self):
+        if (self.whoisruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous whois request to finish")
+            return
+        self.whoisruns=True
+        url=str(self.ui.whoisIn.text())
+        self.ui.whoisOut.setPlainText("Whois: "+url)
+        t1 = threading.Thread(target=self.whoisthread)
+        t1.start()
+        #t1.join()
+
+    def dodns(self):
+        if (self.dnsruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous DNS request to finish")
+            return
+        addr=str(self.ui.dnsIn.text())
+        self.ui.dnsOut.setPlainText("Getting all dns records for: "+addr)
+        self.dnspr = subprocess.Popen(['nslookup', '-q=all',addr,'8.8.8.8'], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+        self.dnsruns=True
+
+    def domx(self):
+        if (self.mxruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous MX request to finish")
+            return
+        addr=str(self.ui.mxIn.text())
+        self.ui.mxOut.setPlainText("Getting MX records for: "+addr)
+        self.mxpr = subprocess.Popen(['nslookup', '-q=mx',addr,'8.8.8.8'], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+        self.mxruns=True
+
+    def doptr(self):
+        if (self.ptrruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous PTR request to finish")
+            return
+        addr=str(self.ui.ptrIn.text())
+        self.ui.ptrOut.setPlainText("Getting PTR record for: "+addr)
+        self.ptrpr = subprocess.Popen(['nslookup', addr,'8.8.8.8'], stdout=subprocess.PIPE,stderr=subprocess.STDOUT, shell=True)
+        self.ptrruns=True
+        
+    def doall(self):
+        if (self.allruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous requests to finish")
+            return
+        if (self.runs):
+            QtGui.QMessageBox.information(self, "Message", "Please stop ping")
+            return
+        if (self.whoisruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous whois request to finish")
+            return
+        if (self.dnsruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous DNS request to finish")
+            return
+        if (self.mxruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous MX request to finish")
+            return
+        if (self.ptrruns):
+            QtGui.QMessageBox.information(self, "Message", "Please wait previous PTR request to finish")
+            return
+        addr=str(self.ui.allIn.text())
+        self.ui.pingIn.setText(addr)
+        self.ui.whoisIn.setText(addr)
+        self.ui.dnsIn.setText(addr)
+        self.ui.mxIn.setText(addr)
+        self.ui.ptrIn.setText(addr)
+        self.doping()
+        self.dowhois()
+        self.dodns()
+        self.domx()
+        self.doptr()
+        self.allruns=True
+
+if __name__ == "__main__":
+    app = QtGui.QApplication(sys.argv)
+    myapp = StartQT4()
+    myapp.show()
+    sys.exit(app.exec_())
